@@ -48,6 +48,21 @@ class Entity:
         )
 
 
+class Camera:
+    def __init__(self, position, target):
+        self.position = np.array(position, dtype=np.float32)
+        self.target = np.array(target, dtype=np.float32)
+        self.up = np.array([0, 1, 0], dtype=np.float32)
+
+    def get_view_matrix(self):
+        return pyrr.matrix44.create_look_at(
+            eye=self.position,
+            target=self.target,
+            up=self.up,
+            dtype=np.float32
+        )
+
+
 class App:
     def __init__(self):
         self._set_up_pygame()
@@ -72,26 +87,37 @@ class App:
     def _set_up_opengl(self) -> None:
         glClearColor(0.1, 0.2, 0.2, 1)
         glEnable(GL_DEPTH_TEST)
+        glDepthFunc(GL_LESS)
 
     def _create_assets(self) -> None:
-        self.cube = Entity(position=[0, 0, -3], eulers=[0, 0, 0])
-        self.floor = Entity(position=[0, 0, 0], eulers=[0, 0, 0])
+        self.cube = Entity(position=[0, 0.0, -2], eulers=[0, 0, 0])
+        self.floor = Entity(position=[0, -0.5, 0], eulers=[0, 0, 0])
         self.cube_mesh = CubeMesh()
         self.floor_mesh = FloorMesh()
         self.wood_texture = Material("gfx/wall.png")
-        self.floor_texture = Material("gfx/wood.jpeg")
+        self.floor_texture = Material("gfx/Ground.jfif")
         self.shader = create_shader(
             vertex_filepath="shaders/vertex.txt", fragment_filepath="shaders/fragment.txt"
+        )
+        
+        self.camera = Camera(
+            position=[0, 2, 5],
+            target=[0, 0, -2]
         )
 
     def _set_onetime_uniforms(self) -> None:
         glUseProgram(self.shader)
         glUniform1i(glGetUniformLocation(self.shader, "imageTexture"), 0)
+        
         projection_transform = pyrr.matrix44.create_perspective_projection(
-            fovy=45, aspect=640 / 480, near=0.1, far=10, dtype=np.float32
+            fovy=45, aspect=640 / 480, near=0.1, far=100, dtype=np.float32
         )
+        
+        self.projectionMatrixLocation = glGetUniformLocation(self.shader, "projection")
+        self.viewMatrixLocation = glGetUniformLocation(self.shader, "view")
+        
         glUniformMatrix4fv(
-            glGetUniformLocation(self.shader, "projection"),
+            self.projectionMatrixLocation,
             1,
             GL_FALSE,
             projection_transform,
@@ -112,6 +138,14 @@ class App:
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
             glUseProgram(self.shader)
+            
+            view_matrix = self.camera.get_view_matrix()
+            glUniformMatrix4fv(
+                self.viewMatrixLocation,
+                1,
+                GL_FALSE,
+                view_matrix,
+            )
 
             glUniformMatrix4fv(
                 self.modelMatrixLocation,
@@ -195,7 +229,7 @@ class CubeMesh:
         glBufferData(GL_ARRAY_BUFFER, vertices.nbytes, vertices, GL_STATIC_DRAW)
 
         glEnableVertexAttribArray(0)
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, ctypes.c_void_p(0))
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, None)
 
         glEnableVertexAttribArray(1)
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, ctypes.c_void_p(12))
@@ -214,12 +248,12 @@ class CubeMesh:
 class FloorMesh:
     def __init__(self):
         vertices = (
-            -5.0, -1.0, -5.0, 0.0, 0.0,
-             5.0, -1.0, -5.0, 5.0, 0.0,
-             5.0, -1.0,  5.0, 5.0, 5.0,
-             5.0, -1.0,  5.0, 5.0, 5.0,
-            -5.0, -1.0,  5.0, 0.0, 5.0,
-            -5.0, -1.0, -5.0, 0.0, 0.0,
+            -5.0, 0.0, -5.0, 0.0, 0.0,
+             5.0, 0.0, -5.0, 5.0, 0.0,
+             5.0, 0.0,  5.0, 5.0, 5.0,
+             5.0, 0.0,  5.0, 5.0, 5.0,
+            -5.0, 0.0,  5.0, 0.0, 5.0,
+            -5.0, 0.0, -5.0, 0.0, 0.0,
         )
         self.vertex_count = len(vertices) // 5
         vertices = np.array(vertices, dtype=np.float32)
