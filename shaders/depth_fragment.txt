@@ -1,0 +1,7 @@
+#version 330 core
+
+void main()
+{
+    // Fragment shader is empty as we only need the depth information
+    // gl_FragDepth is written automatically
+} 

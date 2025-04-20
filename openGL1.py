@@ -48,6 +48,22 @@ class Entity:
         )
 
 
+class Light:
+    def __init__(self, position):
+        self.position = np.array(position, dtype=np.float32)
+        self.color = np.array([1.0, 1.0, 1.0], dtype=np.float32)
+        self.look_at = np.array([0, 0, 0], dtype=np.float32)
+        self.up = np.array([0, 1, 0], dtype=np.float32)
+    
+    def get_view_matrix(self):
+        return pyrr.matrix44.create_look_at(
+            eye=self.position,
+            target=self.look_at,
+            up=self.up,
+            dtype=np.float32
+        )
+
+
 class Camera:
     def __init__(self, position, target):
         self.position = np.array(position, dtype=np.float32)
@@ -69,6 +85,7 @@ class App:
         self._set_up_timer()
         self._set_up_opengl()
         self._create_assets()
+        self._set_up_shadow_map()
         self._set_onetime_uniforms()
         self._get_uniform_locations()
 
@@ -96,16 +113,71 @@ class App:
         self.floor_mesh = FloorMesh()
         self.wood_texture = Material("gfx/wall.png")
         self.floor_texture = Material("gfx/Ground.jfif")
+        
+        # Regular rendering shader
         self.shader = create_shader(
-            vertex_filepath="shaders/vertex.txt", fragment_filepath="shaders/fragment.txt"
+            vertex_filepath="shaders/vertex.txt", 
+            fragment_filepath="shaders/fragment.txt"
+        )
+        
+        # Shadow mapping shaders
+        self.depth_shader = create_shader(
+            vertex_filepath="shaders/depth_vertex.txt", 
+            fragment_filepath="shaders/depth_fragment.txt"
+        )
+        
+        self.shadow_shader = create_shader(
+            vertex_filepath="shaders/shadow_vertex.txt", 
+            fragment_filepath="shaders/shadow_fragment.txt"
         )
         
         self.camera = Camera(
             position=[0, 2, 5],
             target=[0, 0, -2]
         )
+        
+        # Add a light source for shadow casting
+        self.light = Light(position=[2, 4, 2])
+
+    def _set_up_shadow_map(self) -> None:
+        # Shadow map resolution
+        self.SHADOW_WIDTH = 1024
+        self.SHADOW_HEIGHT = 1024
+        
+        # Create a framebuffer object for the depth map
+        self.depth_map_FBO = glGenFramebuffers(1)
+        
+        # Create a 2D texture for the depth map
+        self.depth_map = glGenTextures(1)
+        glBindTexture(GL_TEXTURE_2D, self.depth_map)
+        glTexImage2D(
+            GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 
+            self.SHADOW_WIDTH, self.SHADOW_HEIGHT, 0, 
+            GL_DEPTH_COMPONENT, GL_FLOAT, None
+        )
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER)
+        border_color = [1.0, 1.0, 1.0, 1.0]
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border_color)
+        
+        # Attach the depth texture to the framebuffer
+        glBindFramebuffer(GL_FRAMEBUFFER, self.depth_map_FBO)
+        glFramebufferTexture2D(
+            GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, self.depth_map, 0
+        )
+        glDrawBuffer(GL_NONE)
+        glReadBuffer(GL_NONE)
+        glBindFramebuffer(GL_FRAMEBUFFER, 0)
+        
+        # Light space projection matrix
+        self.light_projection = pyrr.matrix44.create_orthogonal_projection_matrix(
+            left=-10, right=10, bottom=-10, top=10, near=1.0, far=20.0, dtype=np.float32
+        )
 
     def _set_onetime_uniforms(self) -> None:
+        # Setup normal shader uniforms
         glUseProgram(self.shader)
         glUniform1i(glGetUniformLocation(self.shader, "imageTexture"), 0)
         
@@ -122,10 +194,80 @@ class App:
             GL_FALSE,
             projection_transform,
         )
+        
+        # Setup shadow shader uniforms
+        glUseProgram(self.shadow_shader)
+        glUniform1i(glGetUniformLocation(self.shadow_shader, "imageTexture"), 0)
+        glUniform1i(glGetUniformLocation(self.shadow_shader, "shadowMap"), 1)
+        
+        glUniformMatrix4fv(
+            glGetUniformLocation(self.shadow_shader, "projection"),
+            1,
+            GL_FALSE,
+            projection_transform,
+        )
 
     def _get_uniform_locations(self) -> None:
+        # Regular shader locations
         glUseProgram(self.shader)
         self.modelMatrixLocation = glGetUniformLocation(self.shader, "model")
+        
+        # Depth shader locations
+        glUseProgram(self.depth_shader)
+        self.depthModelLocation = glGetUniformLocation(self.depth_shader, "model")
+        self.lightSpaceMatrixLocation = glGetUniformLocation(self.depth_shader, "lightSpaceMatrix")
+        
+        # Shadow shader locations
+        glUseProgram(self.shadow_shader)
+        self.shadowModelLocation = glGetUniformLocation(self.shadow_shader, "model")
+        self.shadowViewLocation = glGetUniformLocation(self.shadow_shader, "view")
+        self.lightPosLocation = glGetUniformLocation(self.shadow_shader, "lightPos")
+        self.viewPosLocation = glGetUniformLocation(self.shadow_shader, "viewPos")
+        self.lightSpaceMatrixLocShadow = glGetUniformLocation(self.shadow_shader, "lightSpaceMatrix")
+
+    def _render_scene_depth(self, shader, model_loc):
+        # Render cube for the depth map
+        glUniformMatrix4fv(
+            model_loc,
+            1,
+            GL_FALSE,
+            self.cube.get_model_transform(),
+        )
+        self.cube_mesh.arm_for_drawing()
+        self.cube_mesh.draw()
+        
+        # Render floor for the depth map
+        glUniformMatrix4fv(
+            model_loc,
+            1,
+            GL_FALSE,
+            self.floor.get_model_transform(),
+        )
+        self.floor_mesh.arm_for_drawing()
+        self.floor_mesh.draw()
+
+    def _render_scene(self, shader, model_loc):
+        # Render cube with texture
+        glUniformMatrix4fv(
+            model_loc,
+            1,
+            GL_FALSE,
+            self.cube.get_model_transform(),
+        )
+        self.wood_texture.use()
+        self.cube_mesh.arm_for_drawing()
+        self.cube_mesh.draw()
+        
+        # Render floor with texture
+        glUniformMatrix4fv(
+            model_loc,
+            1,
+            GL_FALSE,
+            self.floor.get_model_transform(),
+        )
+        self.floor_texture.use()
+        self.floor_mesh.arm_for_drawing()
+        self.floor_mesh.draw()
 
     def run(self) -> None:
         running = True
@@ -135,37 +277,71 @@ class App:
                     running = False
 
             self.cube.update()
-
+            
+            # 1. First render pass: render depth map from light's perspective
+            light_view = self.light.get_view_matrix()
+            light_space_matrix = pyrr.matrix44.multiply(
+                self.light_projection, light_view
+            )
+            
+            glViewport(0, 0, self.SHADOW_WIDTH, self.SHADOW_HEIGHT)
+            glBindFramebuffer(GL_FRAMEBUFFER, self.depth_map_FBO)
+            glClear(GL_DEPTH_BUFFER_BIT)
+            
+            # Use depth shader to create shadow map
+            glUseProgram(self.depth_shader)
+            glUniformMatrix4fv(
+                self.lightSpaceMatrixLocation,
+                1,
+                GL_FALSE,
+                light_space_matrix,
+            )
+            
+            self._render_scene_depth(self.depth_shader, self.depthModelLocation)
+            
+            # 2. Second render pass: render scene as normal with shadow mapping
+            glBindFramebuffer(GL_FRAMEBUFFER, 0)
+            glViewport(0, 0, 640, 480)
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-            glUseProgram(self.shader)
             
             view_matrix = self.camera.get_view_matrix()
+            
+            # Use shadow shader for rendering with shadows
+            glUseProgram(self.shadow_shader)
+            
+            # Set all the uniforms needed for shadow rendering
             glUniformMatrix4fv(
-                self.viewMatrixLocation,
+                self.shadowViewLocation,
                 1,
                 GL_FALSE,
                 view_matrix,
             )
-
+            
+            glUniform3fv(
+                self.lightPosLocation,
+                1,
+                self.light.position,
+            )
+            
+            glUniform3fv(
+                self.viewPosLocation,
+                1,
+                self.camera.position,
+            )
+            
             glUniformMatrix4fv(
-                self.modelMatrixLocation,
+                self.lightSpaceMatrixLocShadow,
                 1,
                 GL_FALSE,
-                self.cube.get_model_transform(),
+                light_space_matrix,
             )
-            self.wood_texture.use()
-            self.cube_mesh.arm_for_drawing()
-            self.cube_mesh.draw()
+            
+            # Bind shadow map texture
+            glActiveTexture(GL_TEXTURE1)
+            glBindTexture(GL_TEXTURE_2D, self.depth_map)
 
-            glUniformMatrix4fv(
-                self.modelMatrixLocation,
-                1,
-                GL_FALSE,
-                self.floor.get_model_transform(),
-            )
-            self.floor_texture.use()
-            self.floor_mesh.arm_for_drawing()
-            self.floor_mesh.draw()
+            # Render the scene with shadows
+            self._render_scene(self.shadow_shader, self.shadowModelLocation)
 
             pg.display.flip()
             self.clock.tick(60)
@@ -176,6 +352,10 @@ class App:
         self.wood_texture.destroy()
         self.floor_texture.destroy()
         glDeleteProgram(self.shader)
+        glDeleteProgram(self.depth_shader)
+        glDeleteProgram(self.shadow_shader)
+        glDeleteFramebuffers(1, [self.depth_map_FBO])
+        glDeleteTextures(1, [self.depth_map])
         pg.quit()
 
 

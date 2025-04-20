@@ -1,0 +1,7 @@
+#version 330 core
+
+void main()
+{
+    // Nothing to do here - depth is automatically written to the depth buffer
+    // FragColor is not needed for depth-only pass
+} 
