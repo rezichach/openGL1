@@ -3,6 +3,7 @@ from OpenGL.GL import *
 from OpenGL.GL.shaders import compileProgram, compileShader
 import numpy as np
 import pyrr
+import ctypes
 
 
 def create_shader(vertex_filepath: str, fragment_filepath: str) -> int:
@@ -74,8 +75,11 @@ class App:
 
     def _create_assets(self) -> None:
         self.cube = Entity(position=[0, 0, -3], eulers=[0, 0, 0])
+        self.floor = Entity(position=[0, 0, 0], eulers=[0, 0, 0])
         self.cube_mesh = CubeMesh()
+        self.floor_mesh = FloorMesh()
         self.wood_texture = Material("gfx/wall.png")
+        self.floor_texture = Material("gfx/wood.jpeg")
         self.shader = create_shader(
             vertex_filepath="shaders/vertex.txt", fragment_filepath="shaders/fragment.txt"
         )
@@ -119,12 +123,24 @@ class App:
             self.cube_mesh.arm_for_drawing()
             self.cube_mesh.draw()
 
+            glUniformMatrix4fv(
+                self.modelMatrixLocation,
+                1,
+                GL_FALSE,
+                self.floor.get_model_transform(),
+            )
+            self.floor_texture.use()
+            self.floor_mesh.arm_for_drawing()
+            self.floor_mesh.draw()
+
             pg.display.flip()
             self.clock.tick(60)
 
     def quit(self) -> None:
         self.cube_mesh.destroy()
+        self.floor_mesh.destroy()
         self.wood_texture.destroy()
+        self.floor_texture.destroy()
         glDeleteProgram(self.shader)
         pg.quit()
 
@@ -180,6 +196,42 @@ class CubeMesh:
 
         glEnableVertexAttribArray(0)
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, ctypes.c_void_p(0))
+
+        glEnableVertexAttribArray(1)
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, ctypes.c_void_p(12))
+
+    def arm_for_drawing(self) -> None:
+        glBindVertexArray(self.vao)
+
+    def draw(self) -> None:
+        glDrawArrays(GL_TRIANGLES, 0, self.vertex_count)
+
+    def destroy(self) -> None:
+        glDeleteVertexArrays(1, (self.vao,))
+        glDeleteBuffers(1, (self.vbo,))
+
+
+class FloorMesh:
+    def __init__(self):
+        vertices = (
+            -5.0, -1.0, -5.0, 0.0, 0.0,
+             5.0, -1.0, -5.0, 5.0, 0.0,
+             5.0, -1.0,  5.0, 5.0, 5.0,
+             5.0, -1.0,  5.0, 5.0, 5.0,
+            -5.0, -1.0,  5.0, 0.0, 5.0,
+            -5.0, -1.0, -5.0, 0.0, 0.0,
+        )
+        self.vertex_count = len(vertices) // 5
+        vertices = np.array(vertices, dtype=np.float32)
+
+        self.vao = glGenVertexArrays(1)
+        glBindVertexArray(self.vao)
+        self.vbo = glGenBuffers(1)
+        glBindBuffer(GL_ARRAY_BUFFER, self.vbo)
+        glBufferData(GL_ARRAY_BUFFER, vertices.nbytes, vertices, GL_STATIC_DRAW)
+
+        glEnableVertexAttribArray(0)
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, None)
 
         glEnableVertexAttribArray(1)
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, ctypes.c_void_p(12))
