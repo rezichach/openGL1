@@ -8,10 +8,10 @@ import ctypes
 
 def create_shader(vertex_filepath: str, fragment_filepath: str) -> int:
     with open(vertex_filepath, "r") as f:
-        vertex_src = f.readlines()
+        vertex_src = f.read()
 
     with open(fragment_filepath, "r") as f:
-        fragment_src = f.readlines()
+        fragment_src = f.read()
 
     shader = compileProgram(
         compileShader(vertex_src, GL_VERTEX_SHADER),
@@ -178,8 +178,9 @@ class App:
 
     def _set_onetime_uniforms(self) -> None:
         # Setup normal shader uniforms
-        glUseProgram(self.shader)
-        glUniform1i(glGetUniformLocation(self.shader, "imageTexture"), 0)
+        glUseProgram(self.shadow_shader)
+        glUniform1i(glGetUniformLocation(self.shadow_shader, "diffuseTexture"), 0)
+        glUniform1i(glGetUniformLocation(self.shadow_shader, "shadowMap"),      1)
         
         projection_transform = pyrr.matrix44.create_perspective_projection(
             fovy=45, aspect=640 / 480, near=0.1, far=100, dtype=np.float32
@@ -287,6 +288,9 @@ class App:
             glViewport(0, 0, self.SHADOW_WIDTH, self.SHADOW_HEIGHT)
             glBindFramebuffer(GL_FRAMEBUFFER, self.depth_map_FBO)
             glClear(GL_DEPTH_BUFFER_BIT)
+
+            glEnable(GL_POLYGON_OFFSET_FILL)          # ⬅️ add
+            glPolygonOffset(2.0, 4.0) 
             
             # Use depth shader to create shadow map
             glUseProgram(self.depth_shader)
@@ -298,6 +302,8 @@ class App:
             )
             
             self._render_scene_depth(self.depth_shader, self.depthModelLocation)
+
+            glDisable(GL_POLYGON_OFFSET_FILL)         # ⬅️ add
             
             # 2. Second render pass: render scene as normal with shadow mapping
             glBindFramebuffer(GL_FRAMEBUFFER, 0)
@@ -359,106 +365,107 @@ class App:
         pg.quit()
 
 
+# ───────────── CubeMesh with normals (pos 3 ‖ normal 3 ‖ uv 2) ─────────────
 class CubeMesh:
     def __init__(self):
-        vertices = (
-            -0.5, -0.5, -0.5, 0, 0,
-            0.5, -0.5, -0.5, 1, 0,
-            0.5,  0.5, -0.5, 1, 1,
-            0.5,  0.5, -0.5, 1, 1,
-           -0.5,  0.5, -0.5, 0, 1,
-           -0.5, -0.5, -0.5, 0, 0,
-           -0.5, -0.5,  0.5, 0, 0,
-            0.5, -0.5,  0.5, 1, 0,
-            0.5,  0.5,  0.5, 1, 1,
-            0.5,  0.5,  0.5, 1, 1,
-           -0.5,  0.5,  0.5, 0, 1,
-           -0.5, -0.5,  0.5, 0, 0,
-           -0.5,  0.5,  0.5, 1, 0,
-           -0.5,  0.5, -0.5, 1, 1,
-           -0.5, -0.5, -0.5, 0, 1,
-           -0.5, -0.5, -0.5, 0, 1,
-           -0.5, -0.5,  0.5, 0, 0,
-           -0.5,  0.5,  0.5, 1, 0,
-            0.5,  0.5,  0.5, 1, 0,
-            0.5,  0.5, -0.5, 1, 1,
-            0.5, -0.5, -0.5, 0, 1,
-            0.5, -0.5, -0.5, 0, 1,
-            0.5, -0.5,  0.5, 0, 0,
-            0.5,  0.5,  0.5, 1, 0,
-           -0.5, -0.5, -0.5, 0, 1,
-            0.5, -0.5, -0.5, 1, 1,
-            0.5, -0.5,  0.5, 1, 0,
-            0.5, -0.5,  0.5, 1, 0,
-           -0.5, -0.5,  0.5, 0, 0,
-           -0.5, -0.5, -0.5, 0, 1,
-           -0.5,  0.5, -0.5, 0, 1,
-            0.5,  0.5, -0.5, 1, 1,
-            0.5,  0.5,  0.5, 1, 0,
-            0.5,  0.5,  0.5, 1, 0,
-           -0.5,  0.5,  0.5, 0, 0,
-           -0.5,  0.5, -0.5, 0, 1,
+        verts = (
+        #  x,  y,  z,    nx, ny, nz,    u, v          ← 8 floats/vertex
+        # front face  (-Z)
+        -0.5,-0.5,-0.5,   0, 0,-1,      0,0,
+         0.5,-0.5,-0.5,   0, 0,-1,      1,0,
+         0.5, 0.5,-0.5,   0, 0,-1,      1,1,
+         0.5, 0.5,-0.5,   0, 0,-1,      1,1,
+        -0.5, 0.5,-0.5,   0, 0,-1,      0,1,
+        -0.5,-0.5,-0.5,   0, 0,-1,      0,0,
+        # back face   (+Z)
+        -0.5,-0.5, 0.5,   0, 0, 1,      0,0,
+         0.5,-0.5, 0.5,   0, 0, 1,      1,0,
+         0.5, 0.5, 0.5,   0, 0, 1,      1,1,
+         0.5, 0.5, 0.5,   0, 0, 1,      1,1,
+        -0.5, 0.5, 0.5,   0, 0, 1,      0,1,
+        -0.5,-0.5, 0.5,   0, 0, 1,      0,0,
+        # left face   (-X)
+        -0.5, 0.5, 0.5,  -1, 0, 0,      1,0,
+        -0.5, 0.5,-0.5,  -1, 0, 0,      1,1,
+        -0.5,-0.5,-0.5,  -1, 0, 0,      0,1,
+        -0.5,-0.5,-0.5,  -1, 0, 0,      0,1,
+        -0.5,-0.5, 0.5,  -1, 0, 0,      0,0,
+        -0.5, 0.5, 0.5,  -1, 0, 0,      1,0,
+        # right face  (+X)
+         0.5, 0.5, 0.5,   1, 0, 0,      1,0,
+         0.5, 0.5,-0.5,   1, 0, 0,      1,1,
+         0.5,-0.5,-0.5,   1, 0, 0,      0,1,
+         0.5,-0.5,-0.5,   1, 0, 0,      0,1,
+         0.5,-0.5, 0.5,   1, 0, 0,      0,0,
+         0.5, 0.5, 0.5,   1, 0, 0,      1,0,
+        # bottom face (-Y)
+        -0.5,-0.5,-0.5,   0,-1, 0,      0,1,
+         0.5,-0.5,-0.5,   0,-1, 0,      1,1,
+         0.5,-0.5, 0.5,   0,-1, 0,      1,0,
+         0.5,-0.5, 0.5,   0,-1, 0,      1,0,
+        -0.5,-0.5, 0.5,   0,-1, 0,      0,0,
+        -0.5,-0.5,-0.5,   0,-1, 0,      0,1,
+        # top face    (+Y)
+        -0.5, 0.5,-0.5,   0, 1, 0,      0,1,
+         0.5, 0.5,-0.5,   0, 1, 0,      1,1,
+         0.5, 0.5, 0.5,   0, 1, 0,      1,0,
+         0.5, 0.5, 0.5,   0, 1, 0,      1,0,
+        -0.5, 0.5, 0.5,   0, 1, 0,      0,0,
+        -0.5, 0.5,-0.5,   0, 1, 0,      0,1,
         )
-        self.vertex_count = len(vertices) // 5
-        vertices = np.array(vertices, dtype=np.float32)
+        self.vertex_count = len(verts)//8
+        verts = np.array(verts, dtype=np.float32)
 
-        self.vao = glGenVertexArrays(1)
-        glBindVertexArray(self.vao)
+        stride = 8*4
+        self.vao = glGenVertexArrays(1); glBindVertexArray(self.vao)
         self.vbo = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo)
-        glBufferData(GL_ARRAY_BUFFER, vertices.nbytes, vertices, GL_STATIC_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, verts.nbytes, verts, GL_STATIC_DRAW)
 
-        glEnableVertexAttribArray(0)
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, None)
+        glEnableVertexAttribArray(0)  # position
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(0))
+        glEnableVertexAttribArray(1)  # normal
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(12))
+        glEnableVertexAttribArray(2)  # uv
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(24))
 
-        glEnableVertexAttribArray(1)
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, ctypes.c_void_p(12))
+    def arm_for_drawing(self): glBindVertexArray(self.vao)
+    def draw(self):            glDrawArrays(GL_TRIANGLES, 0, self.vertex_count)
+    def destroy(self):
+        glDeleteVertexArrays(1,(self.vao,)); glDeleteBuffers(1,(self.vbo,))
 
-    def arm_for_drawing(self) -> None:
-        glBindVertexArray(self.vao)
-
-    def draw(self) -> None:
-        glDrawArrays(GL_TRIANGLES, 0, self.vertex_count)
-
-    def destroy(self) -> None:
-        glDeleteVertexArrays(1, (self.vao,))
-        glDeleteBuffers(1, (self.vbo,))
-
-
+# ───────────── FloorMesh with normals ─────────────
 class FloorMesh:
     def __init__(self):
-        vertices = (
-            -5.0, 0.0, -5.0, 0.0, 0.0,
-             5.0, 0.0, -5.0, 5.0, 0.0,
-             5.0, 0.0,  5.0, 5.0, 5.0,
-             5.0, 0.0,  5.0, 5.0, 5.0,
-            -5.0, 0.0,  5.0, 0.0, 5.0,
-            -5.0, 0.0, -5.0, 0.0, 0.0,
+        verts = (
+        #  x, y,  z,    nx, ny, nz,    u, v
+        -5,0,-5,   0,1,0,   0,0,
+         5,0,-5,   0,1,0,   5,0,
+         5,0, 5,   0,1,0,   5,5,
+         5,0, 5,   0,1,0,   5,5,
+        -5,0, 5,   0,1,0,   0,5,
+        -5,0,-5,   0,1,0,   0,0,
         )
-        self.vertex_count = len(vertices) // 5
-        vertices = np.array(vertices, dtype=np.float32)
+        self.vertex_count = len(verts)//8
+        verts = np.array(verts, dtype=np.float32)
 
-        self.vao = glGenVertexArrays(1)
-        glBindVertexArray(self.vao)
+        stride = 8*4
+        self.vao = glGenVertexArrays(1); glBindVertexArray(self.vao)
         self.vbo = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo)
-        glBufferData(GL_ARRAY_BUFFER, vertices.nbytes, vertices, GL_STATIC_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, verts.nbytes, verts, GL_STATIC_DRAW)
 
         glEnableVertexAttribArray(0)
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, None)
-
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(0))
         glEnableVertexAttribArray(1)
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, ctypes.c_void_p(12))
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(12))
+        glEnableVertexAttribArray(2)
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(24))
 
-    def arm_for_drawing(self) -> None:
-        glBindVertexArray(self.vao)
-
-    def draw(self) -> None:
-        glDrawArrays(GL_TRIANGLES, 0, self.vertex_count)
-
-    def destroy(self) -> None:
-        glDeleteVertexArrays(1, (self.vao,))
-        glDeleteBuffers(1, (self.vbo,))
+    def arm_for_drawing(self): glBindVertexArray(self.vao)
+    def draw(self):            glDrawArrays(GL_TRIANGLES, 0, self.vertex_count)
+    def destroy(self):
+        glDeleteVertexArrays(1,(self.vao,)); glDeleteBuffers(1,(self.vbo,))
 
 
 class Material:
@@ -469,9 +476,9 @@ class Material:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-        image = pg.image.load(filepath).convert()
+        image = pg.image.load(filepath).convert_alpha()
         image_width, image_height = image.get_rect().size
-        img_data = pg.image.tostring(image, "RGBA")
+        img_data = pg.image.tostring(image, "RGBA", True)
         glTexImage2D(
             GL_TEXTURE_2D,
             0,
