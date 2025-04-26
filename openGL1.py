@@ -122,10 +122,8 @@ class App:
         glDepthFunc(GL_LESS)
 
     def _create_assets(self) -> None:
-        # Create multiple cubes at different positions
-        self.main_cube = Entity(position=[0, 1.5, 0], eulers=[0, 0, 0], scale=[0.5, 0.5, 0.5])
-        self.cube2 = Entity(position=[2.0, 0.0, 1.0], eulers=[0, 0, 0], scale=[0.5, 0.5, 0.5])
-        self.cube3 = Entity(position=[-1.0, 0.0, 2.0], eulers=[60, 0, 0], scale=[0.25, 0.25, 0.25])
+        # Create just one spinning cube in the middle
+        self.main_cube = Entity(position=[0, 0, 0], eulers=[0, 0, 0], scale=[0.5, 0.5, 0.5])
         
         # Floor positioned at y=0
         self.floor = Entity(position=[0, -0.5, 0], eulers=[0, 0, 0])
@@ -264,30 +262,12 @@ class App:
         self.far_plane_loc = glGetUniformLocation(self.debug_depth_shader, "far_plane")
 
     def _render_scene_depth(self, shader, model_loc):
-        # Render all cubes for the depth map
+        # Render only the main cube for the depth map
         glUniformMatrix4fv(
             model_loc,
             1,
             GL_FALSE,
             self.main_cube.get_model_transform(),
-        )
-        self.cube_mesh.arm_for_drawing()
-        self.cube_mesh.draw()
-        
-        glUniformMatrix4fv(
-            model_loc,
-            1,
-            GL_FALSE,
-            self.cube2.get_model_transform(),
-        )
-        self.cube_mesh.arm_for_drawing()
-        self.cube_mesh.draw()
-        
-        glUniformMatrix4fv(
-            model_loc,
-            1,
-            GL_FALSE,
-            self.cube3.get_model_transform(),
         )
         self.cube_mesh.arm_for_drawing()
         self.cube_mesh.draw()
@@ -303,32 +283,12 @@ class App:
         self.floor_mesh.draw()
 
     def _render_scene(self, shader, model_loc):
-        # Render all cubes with texture
+        # Render main cube with texture
         glUniformMatrix4fv(
             model_loc,
             1,
             GL_FALSE,
             self.main_cube.get_model_transform(),
-        )
-        self.wood_texture.use()
-        self.cube_mesh.arm_for_drawing()
-        self.cube_mesh.draw()
-        
-        glUniformMatrix4fv(
-            model_loc,
-            1,
-            GL_FALSE,
-            self.cube2.get_model_transform(),
-        )
-        self.wood_texture.use()
-        self.cube_mesh.arm_for_drawing()
-        self.cube_mesh.draw()
-        
-        glUniformMatrix4fv(
-            model_loc,
-            1,
-            GL_FALSE,
-            self.cube3.get_model_transform(),
         )
         self.wood_texture.use()
         self.cube_mesh.arm_for_drawing()
