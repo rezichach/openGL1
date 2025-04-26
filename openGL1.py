@@ -25,21 +25,62 @@ class Entity:
         self.position = np.array(position, dtype=np.float32)
         self.eulers = np.array(eulers, dtype=np.float32)
         self.scale = np.array(scale, dtype=np.float32)
+        self.move_speed = 0.1  # Movement speed per frame
+        self.rotation_speed = 2.0  # Rotation speed per frame
 
     def update(self) -> None:
-        self.eulers[1] += 0.25
+        # No automatic rotation
+        pass
+        
+    def rotate_x(self, angle) -> None:
+        self.eulers[0] += angle
+        if self.eulers[0] > 360:
+            self.eulers[0] -= 360
+        elif self.eulers[0] < 0:
+            self.eulers[0] += 360
+            
+    def rotate_y(self, angle) -> None:
+        self.eulers[1] += angle
         if self.eulers[1] > 360:
             self.eulers[1] -= 360
+        elif self.eulers[1] < 0:
+            self.eulers[1] += 360
+    
+    def rotate_z(self, angle) -> None:
+        self.eulers[2] += angle
+        if self.eulers[2] > 360:
+            self.eulers[2] -= 360
+        elif self.eulers[2] < 0:
+            self.eulers[2] += 360
+    
+    def move(self, direction) -> None:
+        # direction should be a normalized vector
+        self.position += direction * self.move_speed
 
     def get_model_transform(self) -> np.ndarray:
         model_transform = pyrr.matrix44.create_identity(dtype=np.float32)
         
-        # Apply rotation
+        # Apply rotation on all axes
         model_transform = pyrr.matrix44.multiply(
             m1=model_transform,
-            m2=pyrr.matrix44.create_from_axis_rotation(
-                axis=[0, 1, 0],
+            m2=pyrr.matrix44.create_from_x_rotation(
+                theta=np.radians(self.eulers[0]),
+                dtype=np.float32,
+            ),
+        )
+        
+        model_transform = pyrr.matrix44.multiply(
+            m1=model_transform,
+            m2=pyrr.matrix44.create_from_y_rotation(
                 theta=np.radians(self.eulers[1]),
+                dtype=np.float32,
+            ),
+        )
+        
+        model_transform = pyrr.matrix44.multiply(
+            m1=model_transform,
+            m2=pyrr.matrix44.create_from_z_rotation(
+                theta=np.radians(self.eulers[2]),
                 dtype=np.float32,
             ),
         )
@@ -307,7 +348,10 @@ class App:
 
     def run(self) -> None:
         running = True
+        keys = {}  # Dictionary to track which keys are currently pressed
+        
         while running:
+            # Process events
             for event in pg.event.get():
                 if event.type == pg.QUIT:
                     running = False
@@ -315,9 +359,45 @@ class App:
                     if event.key == pg.K_SPACE:
                         # Toggle shadow map visualization with spacebar
                         self.show_depth_map = not self.show_depth_map
-
-            # Update all cubes (optional - only update the ones that should rotate)
-            self.main_cube.update()
+                    # Track key presses
+                    keys[event.key] = True
+                elif event.type == pg.KEYUP:
+                    # Stop tracking released keys
+                    keys[event.key] = False
+            
+            # Handle continuous key presses for movement (X-Z plane)
+            if keys.get(pg.K_w, False):
+                self.main_cube.move(np.array([0, 0, -1]))  # Forward (negative Z)
+            if keys.get(pg.K_s, False):
+                self.main_cube.move(np.array([0, 0, 1]))   # Backward (positive Z)
+            if keys.get(pg.K_a, False):
+                self.main_cube.move(np.array([-1, 0, 0]))  # Left (negative X)
+            if keys.get(pg.K_d, False):
+                self.main_cube.move(np.array([1, 0, 0]))   # Right (positive X)
+            
+            # Handle up/down movement with arrow keys
+            if keys.get(pg.K_UP, False):
+                self.main_cube.move(np.array([0, 1, 0]))   # Up (positive Y)
+            if keys.get(pg.K_DOWN, False):
+                self.main_cube.move(np.array([0, -1, 0]))  # Down (negative Y)
+            
+            # Handle pitch (X-axis rotation) with T/G
+            if keys.get(pg.K_t, False):
+                self.main_cube.rotate_x(self.main_cube.rotation_speed)  # Pitch up (look up)
+            if keys.get(pg.K_g, False):
+                self.main_cube.rotate_x(-self.main_cube.rotation_speed)  # Pitch down (look down)
+                
+            # Handle yaw (Y-axis rotation) with H/F
+            if keys.get(pg.K_h, False):
+                self.main_cube.rotate_y(self.main_cube.rotation_speed)  # Yaw right (turn right)
+            if keys.get(pg.K_f, False):
+                self.main_cube.rotate_y(-self.main_cube.rotation_speed)  # Yaw left (turn left)
+                
+            # Handle roll (Z-axis rotation) with Y/R
+            if keys.get(pg.K_y, False):
+                self.main_cube.rotate_z(self.main_cube.rotation_speed)  # Roll right
+            if keys.get(pg.K_r, False):
+                self.main_cube.rotate_z(-self.main_cube.rotation_speed)  # Roll left
             
             # 1. First render pass: render depth map from light's perspective
             light_view = self.light.get_view_matrix()
