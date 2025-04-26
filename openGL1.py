@@ -380,10 +380,10 @@ class App:
             glBindFramebuffer(GL_FRAMEBUFFER, self.depth_map_FBO)
             glClear(GL_DEPTH_BUFFER_BIT)
 
-            glEnable(GL_CULL_FACE)
-            glCullFace(GL_BACK)  # Changed from GL_FRONT to GL_BACK
+            # Disable face culling entirely for depth map generation
+            glDisable(GL_CULL_FACE)
             glEnable(GL_POLYGON_OFFSET_FILL)
-            glPolygonOffset(0.5, 1.0)  # Reduced from 2.0, 4.0 to 0.5, 1.0
+            glPolygonOffset(1.0, 1.0)  # Adjusted to balanced values
             
             # Use depth shader to create shadow map
             glUseProgram(self.depth_shader)
