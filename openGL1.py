@@ -364,15 +364,16 @@ class App:
             
             # Set up near and far planes for the light's perspective
             near_plane = 1.0
-            far_plane = 7.5
+            far_plane = 30.0  # Increased from 7.5 to cover the entire floor
             
             # Create light space matrix
             self.light_projection = pyrr.matrix44.create_orthogonal_projection_matrix(
                 left=-10, right=10, bottom=-10, top=10, near=near_plane, far=far_plane, dtype=np.float32
             )
             
+            # Fix matrix multiplication order - view first, then projection
             light_space_matrix = pyrr.matrix44.multiply(
-                self.light_projection, light_view
+                light_view, self.light_projection
             )
             
             glViewport(0, 0, self.SHADOW_WIDTH, self.SHADOW_HEIGHT)
@@ -380,9 +381,9 @@ class App:
             glClear(GL_DEPTH_BUFFER_BIT)
 
             glEnable(GL_CULL_FACE)
-            glCullFace(GL_FRONT)  # Cull front faces to reduce shadow acne
+            glCullFace(GL_BACK)  # Changed from GL_FRONT to GL_BACK
             glEnable(GL_POLYGON_OFFSET_FILL)
-            glPolygonOffset(2.0, 4.0)
+            glPolygonOffset(0.5, 1.0)  # Reduced from 2.0, 4.0 to 0.5, 1.0
             
             # Use depth shader to create shadow map
             glUseProgram(self.depth_shader)
