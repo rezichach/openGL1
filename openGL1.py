@@ -15,10 +15,10 @@ class MenuSystem:
         self.clock = pg.time.Clock()
         self.font_large = pg.font.SysFont('Arial', 48)
         self.font = pg.font.SysFont('Arial', 32)
-        self.background_color = (50, 50, 70)
-        self.button_color = (100, 100, 180)
-        self.button_hover_color = (120, 120, 220)
-        self.text_color = (255, 255, 255)
+        self.background_color = (25, 50, 95)  # Dark blue background
+        self.button_color = (40, 80, 170)  # Medium blue for buttons
+        self.button_hover_color = (70, 120, 230)  # Lighter blue for hover
+        self.text_color = (255, 255, 255)  # Keep white text for good contrast
         
     def create_button(self, text, rect, hover=False):
         color = self.button_hover_color if hover else self.button_color
