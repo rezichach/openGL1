@@ -6,6 +6,116 @@ import pyrr
 import ctypes
 
 
+# Menu system class
+class MenuSystem:
+    def __init__(self):
+        pg.init()
+        self.screen = pg.display.set_mode((800, 600))
+        pg.display.set_caption("OpenGL Demo - Menu")
+        self.clock = pg.time.Clock()
+        self.font_large = pg.font.SysFont('Arial', 48)
+        self.font = pg.font.SysFont('Arial', 32)
+        self.background_color = (50, 50, 70)
+        self.button_color = (100, 100, 180)
+        self.button_hover_color = (120, 120, 220)
+        self.text_color = (255, 255, 255)
+        
+    def create_button(self, text, rect, hover=False):
+        color = self.button_hover_color if hover else self.button_color
+        pg.draw.rect(self.screen, color, rect, border_radius=8)
+        pg.draw.rect(self.screen, (255, 255, 255), rect, 2, border_radius=8)
+        text_surface = self.font.render(text, True, self.text_color)
+        text_rect = text_surface.get_rect(center=rect.center)
+        self.screen.blit(text_surface, text_rect)
+        
+    def show_controls(self):
+        running = True
+        controls = [
+            "W/S/A/D - Move in X-Z plane",
+            "UP/DOWN - Move up/down",
+            "T/G - Rotate X axis (pitch)",
+            "H/F - Rotate Y axis (yaw)",
+            "Y/R - Rotate Z axis (roll)",
+            "SPACE - Toggle shadow map view",
+            "ESC - Return to menu"
+        ]
+        
+        while running:
+            self.screen.fill(self.background_color)
+            
+            # Title
+            title = self.font_large.render("Controls", True, self.text_color)
+            title_rect = title.get_rect(center=(400, 60))
+            self.screen.blit(title, title_rect)
+            
+            # Controls list
+            for i, control in enumerate(controls):
+                text = self.font.render(control, True, self.text_color)
+                self.screen.blit(text, (150, 150 + i * 50))
+            
+            # Back button
+            back_rect = pg.Rect(300, 500, 200, 50)
+            mouse_pos = pg.mouse.get_pos()
+            hover = back_rect.collidepoint(mouse_pos)
+            self.create_button("Back", back_rect, hover)
+            
+            for event in pg.event.get():
+                if event.type == pg.QUIT:
+                    running = False
+                    return False
+                if event.type == pg.KEYDOWN:
+                    if event.key == pg.K_ESCAPE:
+                        running = False
+                if event.type == pg.MOUSEBUTTONDOWN:
+                    if back_rect.collidepoint(event.pos):
+                        running = False
+            
+            pg.display.flip()
+            self.clock.tick(60)
+        
+        return True
+    
+    def run(self):
+        running = True
+        
+        while running:
+            self.screen.fill(self.background_color)
+            
+            # Title
+            title = self.font_large.render("OpenGL Demo", True, self.text_color)
+            title_rect = title.get_rect(center=(400, 100))
+            self.screen.blit(title, title_rect)
+            
+            # Buttons
+            start_rect = pg.Rect(300, 200, 200, 50)
+            controls_rect = pg.Rect(300, 300, 200, 50)
+            quit_rect = pg.Rect(300, 400, 200, 50)
+            
+            mouse_pos = pg.mouse.get_pos()
+            start_hover = start_rect.collidepoint(mouse_pos)
+            controls_hover = controls_rect.collidepoint(mouse_pos)
+            quit_hover = quit_rect.collidepoint(mouse_pos)
+            
+            self.create_button("Start", start_rect, start_hover)
+            self.create_button("Controls", controls_rect, controls_hover)
+            self.create_button("Quit", quit_rect, quit_hover)
+            
+            for event in pg.event.get():
+                if event.type == pg.QUIT:
+                    return False
+                if event.type == pg.MOUSEBUTTONDOWN:
+                    if start_rect.collidepoint(event.pos):
+                        return True
+                    elif controls_rect.collidepoint(event.pos):
+                        if not self.show_controls():
+                            return False
+                    elif quit_rect.collidepoint(event.pos):
+                        return False
+            
+            pg.display.flip()
+            self.clock.tick(60)
+
+
 def create_shader(vertex_filepath: str, fragment_filepath: str) -> int:
     with open(vertex_filepath, "r") as f:
         vertex_src = f.read()
@@ -146,13 +256,17 @@ class App:
         self._get_uniform_locations()
 
     def _set_up_pygame(self) -> None:
-        pg.init()
+        # Don't initialize pygame again, as the menu already did this
+        # pg.init()
+        # Just set the OpenGL attributes and switch to OpenGL mode
         pg.display.gl_set_attribute(pg.GL_CONTEXT_MAJOR_VERSION, 3)
         pg.display.gl_set_attribute(pg.GL_CONTEXT_MINOR_VERSION, 3)
         pg.display.gl_set_attribute(
             pg.GL_CONTEXT_PROFILE_MASK, pg.GL_CONTEXT_PROFILE_CORE
         )
-        pg.display.set_mode((640, 480), pg.OPENGL | pg.DOUBLEBUF)
+        # Use the same size as the menu for consistency
+        pg.display.set_mode((800, 600), pg.OPENGL | pg.DOUBLEBUF)
+        pg.display.set_caption("OpenGL Demo - Running")
 
     def _set_up_timer(self) -> None:
         self.clock = pg.time.Clock()
@@ -172,30 +286,30 @@ class App:
         self.cube_mesh = CubeMesh()
         self.floor_mesh = FloorMesh()
         self.quad_mesh = QuadMesh()  # Added quad mesh for debug visualization
-        self.wood_texture = Material("gfx/wall.png")
-        self.floor_texture = Material("gfx/Ground.jfif")
+        self.wood_texture = Material("openGL1/gfx/wall.png")
+        self.floor_texture = Material("openGL1/gfx/Ground.jfif")
         
         # Regular rendering shader
         self.shader = create_shader(
-            vertex_filepath="shaders/vertex.txt", 
-            fragment_filepath="shaders/fragment.txt"
+            vertex_filepath="openGL1/shaders/vertex.txt", 
+            fragment_filepath="openGL1/shaders/fragment.txt"
         )
         
         # Shadow mapping shaders
         self.depth_shader = create_shader(
-            vertex_filepath="shaders/depth_vertex.txt", 
-            fragment_filepath="shaders/depth_fragment.txt"
+            vertex_filepath="openGL1/shaders/depth_vertex.txt", 
+            fragment_filepath="openGL1/shaders/depth_fragment.txt"
         )
         
         self.shadow_shader = create_shader(
-            vertex_filepath="shaders/shadow_vertex.txt", 
-            fragment_filepath="shaders/shadow_fragment.txt"
+            vertex_filepath="openGL1/shaders/shadow_vertex.txt", 
+            fragment_filepath="openGL1/shaders/shadow_fragment.txt"
         )
         
         # Create debug depth shader for visualizing shadow map
         self.debug_depth_shader = create_shader(
-            vertex_filepath="shaders/debug_quad_vertex.txt", 
-            fragment_filepath="shaders/debug_fragment.txt"
+            vertex_filepath="openGL1/shaders/debug_quad_vertex.txt", 
+            fragment_filepath="openGL1/shaders/debug_fragment.txt"
         )
         
         self.camera = Camera(
@@ -248,7 +362,7 @@ class App:
 
     def _set_onetime_uniforms(self) -> None:
         projection_transform = pyrr.matrix44.create_perspective_projection(
-            fovy=45, aspect=640 / 480, near=0.1, far=100, dtype=np.float32
+            fovy=45, aspect=800 / 600, near=0.1, far=100, dtype=np.float32
         )
         
         # Setup regular shader uniform locations
@@ -359,6 +473,9 @@ class App:
                     if event.key == pg.K_SPACE:
                         # Toggle shadow map visualization with spacebar
                         self.show_depth_map = not self.show_depth_map
+                    elif event.key == pg.K_ESCAPE:
+                        # Return to menu when ESC is pressed
+                        running = False
                     # Track key presses
                     keys[event.key] = True
                 elif event.type == pg.KEYUP:
@@ -441,7 +558,7 @@ class App:
             
             # 2. Second render pass: render scene as normal with shadow mapping
             glBindFramebuffer(GL_FRAMEBUFFER, 0)
-            glViewport(0, 0, 640, 480)
+            glViewport(0, 0, 800, 600)
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
             
             # If showing depth map for debugging
@@ -511,7 +628,8 @@ class App:
         glDeleteProgram(self.debug_depth_shader)  # Added debug shader destruction
         glDeleteFramebuffers(1, [self.depth_map_FBO])
         glDeleteTextures(1, [self.depth_map])
-        pg.quit()
+        # Don't quit pygame here - we'll do that after returning from the app
+        # pg.quit()
 
 
 # ───────────── CubeMesh with normals (pos 3 ‖ normal 3 ‖ uv 2) ─────────────
@@ -678,7 +796,17 @@ class QuadMesh:
         glDeleteVertexArrays(1,(self.vao,)); glDeleteBuffers(1,(self.vbo,))
 
 
-my_app = App()
-my_app.run()
-my_app.quit()
-
+# Main application execution
+if __name__ == "__main__":
+    # Show menu first
+    menu = MenuSystem()
+    start_app = menu.run()
+    
+    if start_app:
+        # Initialize and run OpenGL application
+        my_app = App()
+        my_app.run()
+        my_app.quit()
+    
+    # Always quit pygame at the end
+    pg.quit()
