@@ -4,7 +4,30 @@ from OpenGL.GL.shaders import compileProgram, compileShader
 import numpy as np
 import pyrr
 import ctypes
+import os
+import datetime
+import sqlite3
+import time
+from pathlib import Path
 
+# Screenshots will be saved to the screenshots folder
+SCREENSHOTS_DIR = "openGL1/screenshots"
+# Database path
+DB_PATH = "openGL1/screenshot_db.sqlite"
+
+# Simple database initialization
+conn = sqlite3.connect(DB_PATH)
+cursor = conn.cursor()
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS screenshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    filename TEXT NOT NULL,
+    filepath TEXT NOT NULL,
+    timestamp TEXT NOT NULL
+)
+''')
+conn.commit()
+conn.close()
 
 # Menu system class
 class MenuSystem:
@@ -31,11 +54,9 @@ class MenuSystem:
     def show_controls(self):
         running = True
         controls = [
-            "W/S/A/D - Move in X-Z plane",
-            "UP/DOWN - Move up/down",
-            "T/G - Rotate X axis (pitch)",
-            "H/F - Rotate Y axis (yaw)",
-            "Y/R - Rotate Z axis (roll)",
+            "Movement: WASD (X-Z plane), UP/DOWN (Y axis)",
+            "Rotation: T/G (X axis), H/F (Y axis), Y/R (Z axis)",
+            "M - Take screenshot",
             "SPACE - Toggle shadow map view",
             "ESC - Return to menu"
         ]
@@ -460,6 +481,45 @@ class App:
         self.floor_mesh.arm_for_drawing()
         self.floor_mesh.draw()
 
+    def take_screenshot(self):
+        """Capture the screen and save it to a file, then store in database"""
+        # Get viewport dimensions
+        viewport = glGetIntegerv(GL_VIEWPORT)
+        width, height = viewport[2], viewport[3]
+        
+        # Read pixels directly from the framebuffer
+        glReadBuffer(GL_FRONT)
+        pixels = glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE)
+        
+        # Create a pygame surface from the pixels
+        surf = pg.image.fromstring(pixels, (width, height), 'RGB')
+        # Flip the image vertically since OpenGL has a different coordinate system
+        surf = pg.transform.flip(surf, False, True)
+        
+        # Generate a filename based on timestamp
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"screenshot_{timestamp}.png"
+        filepath = os.path.join(SCREENSHOTS_DIR, filename)
+        
+        # Save the screenshot
+        pg.image.save(surf, filepath)
+        
+        # Store screenshot info in database
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO screenshots (filename, filepath, timestamp) VALUES (?, ?, ?)",
+            (
+                filename, 
+                filepath, 
+                datetime.datetime.now().isoformat()
+            )
+        )
+        conn.commit()
+        conn.close()
+        
+        print(f"Screenshot saved: {filepath}")
+
     def run(self) -> None:
         running = True
         keys = {}  # Dictionary to track which keys are currently pressed
@@ -473,6 +533,9 @@ class App:
                     if event.key == pg.K_SPACE:
                         # Toggle shadow map visualization with spacebar
                         self.show_depth_map = not self.show_depth_map
+                    elif event.key == pg.K_m:
+                        # Take screenshot when M is pressed
+                        self.take_screenshot()
                     elif event.key == pg.K_ESCAPE:
                         # Return to menu when ESC is pressed
                         running = False
