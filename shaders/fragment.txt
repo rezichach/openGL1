@@ -1,12 +1,17 @@
 #version 330 core
 
+// Input texture coordinates from the vertex shader
 in vec2 fragmentTexCoord;
 
+// Texture sampler for the diffuse color map
 uniform sampler2D imageTexture;
 
+// Output color that will be written to the framebuffer
 out vec4 color;
 
 void main()
 {
+    // Sample the texture at the current fragment's texture coordinates
+    // This gives us the base color of the fragment
     color = texture(imageTexture, fragmentTexCoord);
 }

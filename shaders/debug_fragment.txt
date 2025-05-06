@@ -1,22 +1,38 @@
 #version 330 core
+
+// Output color
 out vec4 FragColor;
 
+// Input from vertex shader
 in vec2 TexCoords;
 
-uniform sampler2D depthMap;
-uniform float near_plane;
-uniform float far_plane;
+// Uniforms
+uniform sampler2D depthMap;   // The shadow depth map texture
+uniform float near_plane;     // Near plane distance for depth linearization
+uniform float far_plane;      // Far plane distance for depth linearization
 
+// LinearizeDepth - Converts non-linear depth values to linear depth
+// This is needed for better visualization when using perspective projection
 // Required when using a perspective projection matrix
 float LinearizeDepth(float depth)
 {
-    float z = depth * 2.0 - 1.0; // Back to NDC 
+    float z = depth * 2.0 - 1.0; // Convert from [0,1] to NDC space [-1,1]
+    // Linearization formula derived from the perspective projection matrix
     return (2.0 * near_plane * far_plane) / (far_plane + near_plane - z * (far_plane - near_plane));
 }
 
 void main()
 {             
+    // Sample the depth value from the depth map
     float depthValue = texture(depthMap, TexCoords).r;
-    // FragColor = vec4(vec3(LinearizeDepth(depthValue) / far_plane), 1.0); // perspective
-    FragColor = vec4(vec3(depthValue), 1.0); // orthographic
+    
+    // Convert depth value to grayscale color
+    // Comment/uncomment as needed depending on projection type:
+    
+    // For perspective projection - linearize the depth value
+    // FragColor = vec4(vec3(LinearizeDepth(depthValue) / far_plane), 1.0);
+    
+    // For orthographic projection - use raw depth values
+    // This works because orthographic depth values are already linear
+    FragColor = vec4(vec3(depthValue), 1.0);
 } 

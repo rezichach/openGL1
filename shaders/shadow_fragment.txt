@@ -1,37 +1,46 @@
 #version 330 core
+
+// Fragment shader output: final color after lighting and shadowing
 out vec4 FragColor;
 
+// Input data from vertex shader
 in VS_OUT {
-    vec3 FragPos;
-    vec3 Normal;
-    vec2 TexCoords;
-    vec4 FragPosLightSpace;
+    vec3 FragPos;       // Fragment position in world space
+    vec3 Normal;        // Surface normal at fragment
+    vec2 TexCoords;     // Texture coordinates
+    vec4 FragPosLightSpace; // Fragment position from light's perspective (for shadows)
 } fs_in;
 
-uniform sampler2D diffuseTexture;
-uniform sampler2D shadowMap;
-uniform vec3 lightPos;
-uniform vec3 viewPos;
+// Texture samplers
+uniform sampler2D diffuseTexture; // Base color texture 
+uniform sampler2D shadowMap;      // Shadow depth map from light's perspective
 
+// Scene data for lighting calculations
+uniform vec3 lightPos;  // Position of the light source
+uniform vec3 viewPos;   // Position of the camera/viewer
+
+// Calculate shadow factor (0.0 = fully lit, 1.0 = fully in shadow)
 float ShadowCalculation(vec4 fragPosLightSpace)
 {
-    // Perform perspective divide
+    // Perform perspective divide to get normalized device coordinates (NDC)
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
     
-    // Transform to [0,1] range
+    // Transform NDC from [-1,1] to [0,1] range for texture sampling
     projCoords = projCoords * 0.5 + 0.5;
     
-    // Get closest depth value from light's perspective
+    // Get closest depth value stored in the shadow map
+    // This is the depth of the closest surface from light's perspective
     float closestDepth = texture(shadowMap, projCoords.xy).r; 
     
     // Get depth of current fragment from light's perspective
     float currentDepth = projCoords.z;
     
-    // Check whether current frag pos is in shadow
-    float bias = 0.005; // Fix for shadow acne
+    // Apply shadow bias to prevent shadow acne (surface self-shadowing artifacts)
+    // If current fragment is farther than closest depth, it's in shadow
+    float bias = 0.005; // Adjust bias value to prevent shadow acne
     float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
 
-    // Keep the shadow at 0.0 when outside the light's view
+    // Make sure shadows don't appear on fragments outside the light's view frustum
     if(projCoords.z > 1.0)
         shadow = 0.0;
         
@@ -40,27 +49,40 @@ float ShadowCalculation(vec4 fragPosLightSpace)
 
 void main()
 {           
+    // Sample base color from texture
     vec3 color = texture(diffuseTexture, fs_in.TexCoords).rgb;
+    
+    // Normalize the interpolated normal
     vec3 normal = normalize(fs_in.Normal);
+    
+    // Define light color (white in this case)
     vec3 lightColor = vec3(1.0);
     
-    // Ambient
+    // -------------- Ambient Lighting -------------
+    // Simple ambient term to ensure objects aren't completely dark in shadow
     vec3 ambient = 0.3 * color;
     
-    // Diffuse
+    // -------------- Diffuse Lighting -------------
+    // Calculate light direction and diffuse factor
     vec3 lightDir = normalize(lightPos - fs_in.FragPos);
     float diff = max(dot(lightDir, normal), 0.0);
     vec3 diffuse = diff * lightColor;
     
-    // Specular
+    // -------------- Specular Lighting -------------
+    // Blinn-Phong specular reflection
     vec3 viewDir = normalize(viewPos - fs_in.FragPos);
     vec3 halfwayDir = normalize(lightDir + viewDir);  
     float spec = pow(max(dot(normal, halfwayDir), 0.0), 64.0);
     vec3 specular = spec * lightColor;    
     
-    // Calculate shadow
-    float shadow = ShadowCalculation(fs_in.FragPosLightSpace);       
+    // -------------- Shadow Calculation -------------
+    // Get shadow factor (0 = no shadow, 1 = full shadow)
+    float shadow = ShadowCalculation(fs_in.FragPosLightSpace);
+    
+    // -------------- Final Color Composition -------------
+    // Ambient is always applied, diffuse and specular only where not shadowed
     vec3 lighting = (ambient + (1.0 - shadow) * (diffuse + specular)) * color;    
     
+    // Set fragment color with full opacity
     FragColor = vec4(lighting, 1.0);
 } 

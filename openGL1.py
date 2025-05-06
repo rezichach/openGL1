@@ -1,4 +1,7 @@
-﻿import pygame as pg
+﻿# =====================================================================
+# IMPORTS AND GLOBAL CONSTANTS
+# =====================================================================
+import pygame as pg
 from OpenGL.GL import *
 from OpenGL.GL.shaders import compileProgram, compileShader
 import numpy as np
@@ -15,6 +18,9 @@ SCREENSHOTS_DIR = "openGL1/screenshots"
 # Database path
 DB_PATH = "openGL1/screenshot_db.sqlite"
 
+# =====================================================================
+# DATABASE INITIALIZATION
+# =====================================================================
 # Simple database initialization
 conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
@@ -29,7 +35,9 @@ CREATE TABLE IF NOT EXISTS screenshots (
 conn.commit()
 conn.close()
 
-# Menu system class
+# =====================================================================
+# MENU SYSTEM
+# =====================================================================
 class MenuSystem:
     def __init__(self):
         pg.init()
@@ -137,6 +145,9 @@ class MenuSystem:
             self.clock.tick(60)
 
 
+# =====================================================================
+# SHADER CREATION UTILITY
+# =====================================================================
 def create_shader(vertex_filepath: str, fragment_filepath: str) -> int:
     with open(vertex_filepath, "r") as f:
         vertex_src = f.read()
@@ -151,44 +162,69 @@ def create_shader(vertex_filepath: str, fragment_filepath: str) -> int:
     return shader
 
 
+# =====================================================================
+# ENTITY CLASS - Base object that can be positioned, rotated, and scaled
+# =====================================================================
 class Entity:
+    # Represents a 3D object in the scene with position, rotation and scale.
+    # Provides methods for movement and rotation control.
     def __init__(self, position: list[float], eulers: list[float], scale: list[float] = [1.0, 1.0, 1.0]):
+        # Initialize entity with position, rotation angles and scale
+        # position: [x, y, z] coordinates in 3D space
+        # eulers: [pitch, yaw, roll] rotation angles in degrees
+        # scale: [x, y, z] scale factors, defaults to [1.0, 1.0, 1.0]
         self.position = np.array(position, dtype=np.float32)
         self.eulers = np.array(eulers, dtype=np.float32)
         self.scale = np.array(scale, dtype=np.float32)
         self.move_speed = 0.1  # Movement speed per frame
         self.rotation_speed = 2.0  # Rotation speed per frame
 
+    # Returns: void
     def update(self) -> None:
-        # No automatic rotation
+        # Update method called each frame.
+        # Currently does nothing but could be used for automated movement.
         pass
         
+    # Returns: void
     def rotate_x(self, angle) -> None:
+        # Rotate the entity around its X axis
+        # angle: Rotation angle in degrees
         self.eulers[0] += angle
         if self.eulers[0] > 360:
             self.eulers[0] -= 360
         elif self.eulers[0] < 0:
             self.eulers[0] += 360
             
+    # Returns: void
     def rotate_y(self, angle) -> None:
+        # Rotate the entity around its Y axis
+        # angle: Rotation angle in degrees
         self.eulers[1] += angle
         if self.eulers[1] > 360:
             self.eulers[1] -= 360
         elif self.eulers[1] < 0:
             self.eulers[1] += 360
     
+    # Returns: void
     def rotate_z(self, angle) -> None:
+        # Rotate the entity around its Z axis
+        # angle: Rotation angle in degrees
         self.eulers[2] += angle
         if self.eulers[2] > 360:
             self.eulers[2] -= 360
         elif self.eulers[2] < 0:
             self.eulers[2] += 360
     
+    # Returns: void
     def move(self, direction) -> None:
+        # Move the entity in the specified direction
+        # direction: Normalized direction vector [x, y, z]
         # direction should be a normalized vector
         self.position += direction * self.move_speed
 
     def get_model_transform(self) -> np.ndarray:
+        # Calculate and return the model transformation matrix for this entity
+        # Returns: 4x4 model transformation matrix combining rotation, translation and scale
         model_transform = pyrr.matrix44.create_identity(dtype=np.float32)
         
         # Apply rotation on all axes
@@ -235,14 +271,22 @@ class Entity:
         return model_transform
 
 
+# =====================================================================
+# LIGHT CLASS - Represents a light source for shadow mapping
+# =====================================================================
 class Light:
+    # Represents a light source in the scene, used for shadow mapping and lighting calculations
     def __init__(self, position):
+        # Initialize a light with position
+        # position: [x, y, z] position of the light
         self.position = np.array(position, dtype=np.float32)
-        self.color = np.array([1.0, 1.0, 1.0], dtype=np.float32)
-        self.look_at = np.array([0, 0, 0], dtype=np.float32)
-        self.up = np.array([0, 1, 0], dtype=np.float32)
+        self.color = np.array([1.0, 1.0, 1.0], dtype=np.float32)  # White light
+        self.look_at = np.array([0, 0, 0], dtype=np.float32)  # Light points at origin
+        self.up = np.array([0, 1, 0], dtype=np.float32)  # Up vector
     
     def get_view_matrix(self):
+        # Get the view matrix for this light (used for shadow mapping)
+        # Returns: 4x4 view matrix from light's perspective
         return pyrr.matrix44.create_look_at(
             eye=self.position,
             target=self.look_at,
@@ -251,13 +295,22 @@ class Light:
         )
 
 
+# =====================================================================
+# CAMERA CLASS - View position and perspective
+# =====================================================================
 class Camera:
+    # Represents the camera/viewer in the scene
     def __init__(self, position, target):
+        # Initialize camera with position and target
+        # position: [x, y, z] position of the camera
+        # target: [x, y, z] point the camera is looking at
         self.position = np.array(position, dtype=np.float32)
         self.target = np.array(target, dtype=np.float32)
-        self.up = np.array([0, 1, 0], dtype=np.float32)
+        self.up = np.array([0, 1, 0], dtype=np.float32)  # Up vector (y-axis)
 
     def get_view_matrix(self):
+        # Get the view matrix for this camera
+        # Returns: 4x4 view matrix representing camera's orientation and position
         return pyrr.matrix44.create_look_at(
             eye=self.position,
             target=self.target,
@@ -266,6 +319,9 @@ class Camera:
         )
 
 
+# =====================================================================
+# MAIN APPLICATION CLASS
+# =====================================================================
 class App:
     def __init__(self):
         self._set_up_pygame()
@@ -276,9 +332,11 @@ class App:
         self._set_onetime_uniforms()
         self._get_uniform_locations()
 
+    # -------------------------
+    # INITIALIZATION METHODS
+    # -------------------------
     def _set_up_pygame(self) -> None:
         # Don't initialize pygame again, as the menu already did this
-        # pg.init()
         # Just set the OpenGL attributes and switch to OpenGL mode
         pg.display.gl_set_attribute(pg.GL_CONTEXT_MAJOR_VERSION, 3)
         pg.display.gl_set_attribute(pg.GL_CONTEXT_MINOR_VERSION, 3)
@@ -290,62 +348,76 @@ class App:
         pg.display.set_caption("OpenGL Demo - Running")
 
     def _set_up_timer(self) -> None:
+        # Create clock for managing frame rate
         self.clock = pg.time.Clock()
 
     def _set_up_opengl(self) -> None:
+        # Set the background color (dark teal)
         glClearColor(0.1, 0.2, 0.2, 1)
+        # Enable depth testing so objects are drawn in correct order
         glEnable(GL_DEPTH_TEST)
         glDepthFunc(GL_LESS)
 
     def _create_assets(self) -> None:
-        # Create just one spinning cube in the middle
+        # Create main objects in the scene
+        
+        # Main cube entity in the center of the scene
         self.main_cube = Entity(position=[0, 0, 0], eulers=[0, 0, 0], scale=[0.5, 0.5, 0.5])
         
-        # Floor positioned at y=0
+        # Floor positioned below the cube
         self.floor = Entity(position=[0, -0.5, 0], eulers=[0, 0, 0])
         
+        # Create meshes (geometry) for the objects
         self.cube_mesh = CubeMesh()
         self.floor_mesh = FloorMesh()
-        self.quad_mesh = QuadMesh()  # Added quad mesh for debug visualization
+        self.quad_mesh = ShadowMapQuad()  # Quad for visualizing shadow map
+        
+        # Load textures for the objects
         self.wood_texture = Material("openGL1/gfx/wall.png")
         self.floor_texture = Material("openGL1/gfx/Ground.jfif")
         
-        # Regular rendering shader
+        # Create shaders for different rendering passes
+        
+        # Regular rendering shader (without shadows)
         self.shader = create_shader(
             vertex_filepath="openGL1/shaders/vertex.txt", 
             fragment_filepath="openGL1/shaders/fragment.txt"
         )
         
-        # Shadow mapping shaders
+        # Shadow mapping depth pass shader
         self.depth_shader = create_shader(
             vertex_filepath="openGL1/shaders/depth_vertex.txt", 
             fragment_filepath="openGL1/shaders/depth_fragment.txt"
         )
         
+        # Final rendering shader with shadows
         self.shadow_shader = create_shader(
             vertex_filepath="openGL1/shaders/shadow_vertex.txt", 
             fragment_filepath="openGL1/shaders/shadow_fragment.txt"
         )
         
-        # Create debug depth shader for visualizing shadow map
+        # Shader for visualizing the shadow depth map
         self.debug_depth_shader = create_shader(
             vertex_filepath="openGL1/shaders/debug_quad_vertex.txt", 
             fragment_filepath="openGL1/shaders/debug_fragment.txt"
         )
         
+        # Create camera for the scene
         self.camera = Camera(
-            position=[0, 2, 5],
-            target=[0, 0, 0]
+            position=[0, 2, 5],  # Positioned above and behind the cube
+            target=[0, 0, 0]     # Looking at the center of the scene
         )
         
-        # Light positioned at the left side
-        self.light = Light(position=[-2.0, 4.0, -1.0])
+        # Create light for shadows
+        self.light = Light(position=[-2.0, 4.0, -1.0])  # Light positioned to the left side
         
         # Flag to toggle shadow map visualization
         self.show_depth_map = False
 
     def _set_up_shadow_map(self) -> None:
-        # Shadow map resolution
+        # Configure the framebuffer and texture for shadow mapping
+        
+        # Shadow map resolution (higher = better quality shadows)
         self.SHADOW_WIDTH = 1024
         self.SHADOW_HEIGHT = 1024
         
@@ -360,10 +432,14 @@ class App:
             self.SHADOW_WIDTH, self.SHADOW_HEIGHT, 0, 
             GL_DEPTH_COMPONENT, GL_FLOAT, None
         )
+        
+        # Configure texture filtering and wrapping
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER)
+        
+        # Set border color to white to avoid dark shadow edges
         border_color = [1.0, 1.0, 1.0, 1.0]
         glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border_color)
         
@@ -372,16 +448,21 @@ class App:
         glFramebufferTexture2D(
             GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, self.depth_map, 0
         )
+        
+        # Disable color buffer since we only need depth
         glDrawBuffer(GL_NONE)
         glReadBuffer(GL_NONE)
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
         
-        # Light space projection matrix
+        # Initial light space projection matrix
         self.light_projection = pyrr.matrix44.create_orthogonal_projection_matrix(
             left=-10, right=10, bottom=-10, top=10, near=1.0, far=20.0, dtype=np.float32
         )
 
     def _set_onetime_uniforms(self) -> None:
+        # Set up shader uniforms that don't change during rendering
+        
+        # Create perspective projection matrix for the camera
         projection_transform = pyrr.matrix44.create_perspective_projection(
             fovy=45, aspect=800 / 600, near=0.1, far=100, dtype=np.float32
         )
@@ -391,6 +472,7 @@ class App:
         self.projectionMatrixLocation = glGetUniformLocation(self.shader, "projection")
         self.viewMatrixLocation = glGetUniformLocation(self.shader, "view")
         
+        # Set the projection matrix which doesn't change
         glUniformMatrix4fv(
             self.projectionMatrixLocation,
             1,
@@ -400,9 +482,12 @@ class App:
         
         # Setup shadow shader uniforms
         glUseProgram(self.shadow_shader)
+        
+        # Set texture units for the diffuse texture and shadow map
         glUniform1i(glGetUniformLocation(self.shadow_shader, "diffuseTexture"), 0)
         glUniform1i(glGetUniformLocation(self.shadow_shader, "shadowMap"), 1)
         
+        # Set the projection matrix for this shader too
         glUniformMatrix4fv(
             glGetUniformLocation(self.shadow_shader, "projection"),
             1,
@@ -415,6 +500,8 @@ class App:
         glUniform1i(glGetUniformLocation(self.debug_depth_shader, "depthMap"), 0)
 
     def _get_uniform_locations(self) -> None:
+        # Get locations of shader uniforms that will be updated each frame
+        
         # Regular shader locations
         glUseProgram(self.shader)
         self.modelMatrixLocation = glGetUniformLocation(self.shader, "model")
@@ -437,8 +524,18 @@ class App:
         self.near_plane_loc = glGetUniformLocation(self.debug_depth_shader, "near_plane")
         self.far_plane_loc = glGetUniformLocation(self.debug_depth_shader, "far_plane")
 
+    # -------------------------
+    # RENDERING METHODS
+    # -------------------------
     def _render_scene_depth(self, shader, model_loc):
-        # Render only the main cube for the depth map
+        # Render the scene objects to the depth map from light's perspective
+        # This is used for shadow mapping
+        #
+        # Args:
+        #     shader: The depth shader to use
+        #     model_loc: The location of the model matrix uniform
+        
+        # Render the main cube
         glUniformMatrix4fv(
             model_loc,
             1,
@@ -448,7 +545,7 @@ class App:
         self.cube_mesh.arm_for_drawing()
         self.cube_mesh.draw()
         
-        # Render floor for the depth map
+        # Render the floor
         glUniformMatrix4fv(
             model_loc,
             1,
@@ -459,6 +556,12 @@ class App:
         self.floor_mesh.draw()
 
     def _render_scene(self, shader, model_loc):
+        # Render the scene objects with textures and lighting
+        #
+        # Args:
+        #     shader: The shader to use for rendering
+        #     model_loc: The location of the model matrix uniform
+        
         # Render main cube with texture
         glUniformMatrix4fv(
             model_loc,
@@ -481,8 +584,13 @@ class App:
         self.floor_mesh.arm_for_drawing()
         self.floor_mesh.draw()
 
+    # -------------------------
+    # SCREENSHOT FUNCTIONALITY
+    # -------------------------
     def take_screenshot(self):
-        """Capture the screen and save it to a file, then store in database"""
+        # Capture the screen and save it to a file, then store metadata in database
+        # This is triggered when the user presses the M key
+        
         # Get viewport dimensions
         viewport = glGetIntegerv(GL_VIEWPORT)
         width, height = viewport[2], viewport[3]
@@ -500,6 +608,9 @@ class App:
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"screenshot_{timestamp}.png"
         filepath = os.path.join(SCREENSHOTS_DIR, filename)
+        
+        # Ensure the screenshots directory exists
+        os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
         
         # Save the screenshot
         pg.image.save(surf, filepath)
@@ -520,6 +631,9 @@ class App:
         
         print(f"Screenshot saved: {filepath}")
 
+    # -------------------------
+    # MAIN GAME LOOP
+    # -------------------------
     def run(self) -> None:
         running = True
         keys = {}  # Dictionary to track which keys are currently pressed
@@ -579,31 +693,40 @@ class App:
             if keys.get(pg.K_r, False):
                 self.main_cube.rotate_z(-self.main_cube.rotation_speed)  # Roll left
             
-            # 1. First render pass: render depth map from light's perspective
+            # ===================================================
+            # SHADOW MAPPING - PASS 1: Create depth map from light's perspective
+            # ===================================================
+            # This pass renders the scene from the light's point of view to generate
+            # a depth map (shadow map) that will be used for shadow calculations
+            
+            # Calculate light's view matrix (what the light "sees")
             light_view = self.light.get_view_matrix()
             
             # Set up near and far planes for the light's perspective
             near_plane = 1.0
-            far_plane = 30.0  # Increased from 7.5 to cover the entire floor
+            far_plane = 30.0  # Increased to cover the entire floor
             
-            # Create light space matrix
+            # Create light space matrix with orthographic projection
+            # (directional light doesn't have perspective)
             self.light_projection = pyrr.matrix44.create_orthogonal_projection_matrix(
                 left=-10, right=10, bottom=-10, top=10, near=near_plane, far=far_plane, dtype=np.float32
             )
             
-            # Fix matrix multiplication order - view first, then projection
+            # Combine view and projection to get the complete light space transform
             light_space_matrix = pyrr.matrix44.multiply(
                 light_view, self.light_projection
             )
             
+            # Configure framebuffer for depth map rendering
             glViewport(0, 0, self.SHADOW_WIDTH, self.SHADOW_HEIGHT)
             glBindFramebuffer(GL_FRAMEBUFFER, self.depth_map_FBO)
             glClear(GL_DEPTH_BUFFER_BIT)
 
-            # Disable face culling entirely for depth map generation
+            # Disable face culling for shadow map generation to avoid shadow artifacts
             glDisable(GL_CULL_FACE)
+            # Enable polygon offset to address shadow acne (z-fighting)
             glEnable(GL_POLYGON_OFFSET_FILL)
-            glPolygonOffset(1.0, 1.0)  # Adjusted to balanced values
+            glPolygonOffset(1.0, 1.0)
             
             # Use depth shader to create shadow map
             glUseProgram(self.depth_shader)
@@ -614,25 +737,33 @@ class App:
                 light_space_matrix,
             )
             
+            # Render scene to the depth buffer only
             self._render_scene_depth(self.depth_shader, self.depthModelLocation)
 
+            # Clean up depth pass settings
             glDisable(GL_POLYGON_OFFSET_FILL)
             glDisable(GL_CULL_FACE)
             
-            # 2. Second render pass: render scene as normal with shadow mapping
+            # ===================================================
+            # SHADOW MAPPING - PASS 2: Render scene with shadows
+            # ===================================================
+            # Switch back to default framebuffer and viewport
             glBindFramebuffer(GL_FRAMEBUFFER, 0)
             glViewport(0, 0, 800, 600)
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
             
-            # If showing depth map for debugging
+            # If shadow map visualization is enabled, show the depth texture for debugging
             if self.show_depth_map:
+                # Use the debug shader for visualizing the depth map
                 glUseProgram(self.debug_depth_shader)
                 glUniform1f(self.near_plane_loc, near_plane)
                 glUniform1f(self.far_plane_loc, far_plane)
                 
+                # Bind depth map as a texture
                 glActiveTexture(GL_TEXTURE0)
                 glBindTexture(GL_TEXTURE_2D, self.depth_map)
                 
+                # Draw a fullscreen quad with the depth map
                 self.quad_mesh.arm_for_drawing()
                 self.quad_mesh.draw()
             else:
@@ -650,18 +781,21 @@ class App:
                     view_matrix,
                 )
                 
+                # Pass light position for lighting calculations
                 glUniform3fv(
                     self.lightPosLocation,
                     1,
                     self.light.position,
                 )
                 
+                # Pass camera position for specular calculations
                 glUniform3fv(
                     self.viewPosLocation,
                     1,
                     self.camera.position,
                 )
                 
+                # Pass light space matrix for shadow calculations
                 glUniformMatrix4fv(
                     self.lightSpaceMatrixLocShadow,
                     1,
@@ -669,35 +803,54 @@ class App:
                     light_space_matrix,
                 )
                 
-                # Bind shadow map texture
+                # Bind shadow map texture to texture unit 1
                 glActiveTexture(GL_TEXTURE1)
                 glBindTexture(GL_TEXTURE_2D, self.depth_map)
 
                 # Render the scene with shadows
                 self._render_scene(self.shadow_shader, self.shadowModelLocation)
 
+            # Swap buffers and manage frame timing
             pg.display.flip()
             self.clock.tick(60)
 
+    # -------------------------
+    # CLEANUP
+    # -------------------------
     def quit(self) -> None:
+        # Clean up all OpenGL resources to prevent memory leaks
+        # Called when exiting the application
+        
+        # Delete mesh objects
         self.cube_mesh.destroy()
         self.floor_mesh.destroy()
-        self.quad_mesh.destroy()  # Added quad mesh destruction
+        self.quad_mesh.destroy()
+        
+        # Delete textures
         self.wood_texture.destroy()
         self.floor_texture.destroy()
+        
+        # Delete shader programs
         glDeleteProgram(self.shader)
         glDeleteProgram(self.depth_shader)
         glDeleteProgram(self.shadow_shader)
-        glDeleteProgram(self.debug_depth_shader)  # Added debug shader destruction
+        glDeleteProgram(self.debug_depth_shader)
+        
+        # Delete framebuffers and textures
         glDeleteFramebuffers(1, [self.depth_map_FBO])
         glDeleteTextures(1, [self.depth_map])
-        # Don't quit pygame here - we'll do that after returning from the app
-        # pg.quit()
+        # Note: We don't quit pygame here - we'll do that after returning from the app
 
 
-# ───────────── CubeMesh with normals (pos 3 ‖ normal 3 ‖ uv 2) ─────────────
+# =====================================================================
+# MESH CLASSES - Define geometry for rendering
+# =====================================================================
+# CubeMesh with normals (pos 3 ‖ normal 3 ‖ uv 2)
 class CubeMesh:
+    # Creates a cube mesh with vertex positions, normals, and texture coordinates
     def __init__(self):
+        # Initialize cube mesh with vertices for all six faces
+        # Each vertex has position (x,y,z), normal (nx,ny,nz), and texture (u,v) coordinates
         verts = (
         #  x,  y,  z,    nx, ny, nz,    u, v          ← 8 floats/vertex
         # front face  (-Z)
@@ -746,12 +899,16 @@ class CubeMesh:
         self.vertex_count = len(verts)//8
         verts = np.array(verts, dtype=np.float32)
 
+        # Each vertex has 8 floats: 3 for position, 3 for normal, 2 for texture coordinates
         stride = 8*4
+        
+        # Create vertex array object and vertex buffer
         self.vao = glGenVertexArrays(1); glBindVertexArray(self.vao)
         self.vbo = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo)
         glBufferData(GL_ARRAY_BUFFER, verts.nbytes, verts, GL_STATIC_DRAW)
 
+        # Configure vertex attributes
         glEnableVertexAttribArray(0)  # position
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(0))
         glEnableVertexAttribArray(1)  # normal
@@ -759,14 +916,24 @@ class CubeMesh:
         glEnableVertexAttribArray(2)  # uv
         glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(24))
 
-    def arm_for_drawing(self): glBindVertexArray(self.vao)
-    def draw(self):            glDrawArrays(GL_TRIANGLES, 0, self.vertex_count)
+    def arm_for_drawing(self): 
+        # Bind the vertex array object for rendering
+        glBindVertexArray(self.vao)
+        
+    def draw(self):            
+        # Draw the mesh using triangles
+        glDrawArrays(GL_TRIANGLES, 0, self.vertex_count)
+        
     def destroy(self):
+        # Clean up OpenGL resources
         glDeleteVertexArrays(1,(self.vao,)); glDeleteBuffers(1,(self.vbo,))
 
-# ───────────── FloorMesh with normals ─────────────
+# FloorMesh with normals
 class FloorMesh:
+    # Creates a large floor plane mesh with vertex positions, normals, and texture coordinates
     def __init__(self):
+        # Initialize floor mesh - a simple quad in the XZ plane
+        # Each vertex has position (x,y,z), normal (nx,ny,nz), and texture (u,v) coordinates
         verts = (
         #  x, y,  z,    nx, ny, nz,    u, v
         -25,0,-25,   0,1,0,   0,0,
@@ -779,12 +946,16 @@ class FloorMesh:
         self.vertex_count = len(verts)//8
         verts = np.array(verts, dtype=np.float32)
 
+        # Each vertex has 8 floats: 3 for position, 3 for normal, 2 for texture coordinates
         stride = 8*4
+        
+        # Create vertex array object and vertex buffer
         self.vao = glGenVertexArrays(1); glBindVertexArray(self.vao)
         self.vbo = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo)
         glBufferData(GL_ARRAY_BUFFER, verts.nbytes, verts, GL_STATIC_DRAW)
 
+        # Configure vertex attributes
         glEnableVertexAttribArray(0)
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(0))
         glEnableVertexAttribArray(1)
@@ -792,23 +963,44 @@ class FloorMesh:
         glEnableVertexAttribArray(2)
         glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(24))
 
-    def arm_for_drawing(self): glBindVertexArray(self.vao)
-    def draw(self):            glDrawArrays(GL_TRIANGLES, 0, self.vertex_count)
+    def arm_for_drawing(self): 
+        # Bind the vertex array object for rendering
+        glBindVertexArray(self.vao)
+        
+    def draw(self):            
+        # Draw the mesh using triangles
+        glDrawArrays(GL_TRIANGLES, 0, self.vertex_count)
+        
     def destroy(self):
+        # Clean up OpenGL resources
         glDeleteVertexArrays(1,(self.vao,)); glDeleteBuffers(1,(self.vbo,))
 
 
+# =====================================================================
+# TEXTURE HANDLING
+# =====================================================================
 class Material:
+    # Handles loading and configuring textures for meshes
     def __init__(self, filepath: str):
+        # Load a texture from a file and configure it in OpenGL
+        # filepath: Path to the image file
+        
+        # Generate a texture ID and bind it
         self.texture = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, self.texture)
+        
+        # Configure texture parameters
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        
+        # Load image and convert to OpenGL format
         image = pg.image.load(filepath).convert_alpha()
         image_width, image_height = image.get_rect().size
         img_data = pg.image.tostring(image, "RGBA", True)
+        
+        # Upload image data to the texture
         glTexImage2D(
             GL_TEXTURE_2D,
             0,
@@ -820,18 +1012,27 @@ class Material:
             GL_UNSIGNED_BYTE,
             img_data,
         )
+        # Generate mipmaps for better rendering at different distances
         glGenerateMipmap(GL_TEXTURE_2D)
 
     def use(self) -> None:
+        # Activate this texture for rendering
         glActiveTexture(GL_TEXTURE0)
         glBindTexture(GL_TEXTURE_2D, self.texture)
 
     def destroy(self) -> None:
+        # Clean up the OpenGL texture resources
         glDeleteTextures(1, (self.texture,))
 
 
-class QuadMesh:
+# =====================================================================
+# SHADOW MAP VISUALIZATION
+# =====================================================================
+class ShadowMapQuad:
+    # A simple full-screen quad used to display the shadow depth map for debugging
     def __init__(self):
+        # Initialize a quad mesh with position and texture coordinates
+        # This is used to visualize the shadow map when debugging
         verts = (
         #  x,  y,  z,    u, v
         -1.0,  1.0, 0.0, 0.0, 1.0,
@@ -842,23 +1043,37 @@ class QuadMesh:
         self.vertex_count = 4
         verts = np.array(verts, dtype=np.float32)
 
+        # Each vertex has 5 floats: 3 for position, 2 for texture coordinates 
         stride = 5*4  # 5 floats per vertex, 4 bytes per float
+        
+        # Create vertex array object and buffer
         self.vao = glGenVertexArrays(1); glBindVertexArray(self.vao)
         self.vbo = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo)
         glBufferData(GL_ARRAY_BUFFER, verts.nbytes, verts, GL_STATIC_DRAW)
 
+        # Configure vertex attributes
         glEnableVertexAttribArray(0)  # position
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(0))
         glEnableVertexAttribArray(1)  # uv
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(12))
 
-    def arm_for_drawing(self): glBindVertexArray(self.vao)
-    def draw(self):            glDrawArrays(GL_TRIANGLE_STRIP, 0, self.vertex_count)
+    def arm_for_drawing(self): 
+        # Bind the vertex array object for rendering
+        glBindVertexArray(self.vao)
+        
+    def draw(self):   
+        # Draw the quad using a triangle strip (efficient for quads)
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, self.vertex_count)
+        
     def destroy(self):
+        # Clean up OpenGL resources
         glDeleteVertexArrays(1,(self.vao,)); glDeleteBuffers(1,(self.vbo,))
 
 
+# =====================================================================
+# MAIN PROGRAM EXECUTION
+# =====================================================================
 # Main application execution
 if __name__ == "__main__":
     # Show menu first

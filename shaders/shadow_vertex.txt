@@ -1,25 +1,39 @@
 #version 330 core
-layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec3 aNormal;
-layout (location = 2) in vec2 aTexCoords;
 
+// Vertex attributes
+layout (location = 0) in vec3 aPos;       // Vertex position
+layout (location = 1) in vec3 aNormal;    // Vertex normal
+layout (location = 2) in vec2 aTexCoords; // Texture coordinates
+
+// Output data to fragment shader
 out VS_OUT {
-    vec3 FragPos;
-    vec3 Normal;
-    vec2 TexCoords;
-    vec4 FragPosLightSpace;
+    vec3 FragPos;           // Fragment position in world space
+    vec3 Normal;            // Transformed normal for lighting
+    vec2 TexCoords;         // Texture coordinates
+    vec4 FragPosLightSpace; // Fragment position in light space (for shadows)
 } vs_out;
 
-uniform mat4 projection;
-uniform mat4 view;
-uniform mat4 model;
-uniform mat4 lightSpaceMatrix;
+// Transformation matrices
+uniform mat4 projection;      // Camera projection matrix
+uniform mat4 view;            // Camera view matrix
+uniform mat4 model;           // Model matrix
+uniform mat4 lightSpaceMatrix; // Light's view-projection matrix
 
 void main()
 {
+    // Transform vertex position to world space
     vs_out.FragPos = vec3(model * vec4(aPos, 1.0));
+    
+    // Transform normal to world space
+    // Note: Using transpose(inverse(mat3(model))) to handle non-uniform scaling correctly
     vs_out.Normal = transpose(inverse(mat3(model))) * aNormal;
+    
+    // Pass texture coordinates to fragment shader
     vs_out.TexCoords = aTexCoords;
+    
+    // Transform vertex position to light space for shadow calculation
     vs_out.FragPosLightSpace = lightSpaceMatrix * vec4(vs_out.FragPos, 1.0);
+    
+    // Transform vertex position to clip space for rendering
     gl_Position = projection * view * model * vec4(aPos, 1.0);
 } 

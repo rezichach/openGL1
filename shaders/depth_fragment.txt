@@ -1,7 +1,11 @@
 #version 330 core
 
+// This is the fragment shader for the shadow mapping depth pass
+// Its only purpose is to record depth values for the shadow map
+
 void main()
 {
-    // Fragment shader is empty as we only need the depth information
-    // gl_FragDepth is written automatically
+    // No color output needed for the depth pass
+    // We only care about depth values which are written automatically to gl_FragDepth
+    // The depth buffer will become our shadow map texture
 } 

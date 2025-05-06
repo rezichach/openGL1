@@ -1,16 +1,23 @@
 #version 330 core
 
-layout (location=0) in vec3 vertexPos;
-layout (location=2) in vec2 vertexTexCoord;
+// Vertex attributes - position and texture coordinates
+layout (location=0) in vec3 vertexPos;     // Vertex position in object space
+layout (location=2) in vec2 vertexTexCoord; // Texture coordinates
 
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
+// Transformation matrices
+uniform mat4 model;      // Model matrix - positions object in world
+uniform mat4 view;       // View matrix - camera position and orientation 
+uniform mat4 projection; // Projection matrix - perspective or orthographic
 
+// Output to fragment shader
 out vec2 fragmentTexCoord;
 
 void main()
 {
+    // Transform vertex from object space to clip space
+    // Matrix multiplication order: from right to left
     gl_Position = projection * view * model * vec4(vertexPos, 1.0);
+    
+    // Pass texture coordinates to fragment shader
     fragmentTexCoord = vertexTexCoord;
 }

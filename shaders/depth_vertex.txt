@@ -1,10 +1,15 @@
 #version 330 core
-layout (location = 0) in vec3 aPos;
 
-uniform mat4 lightSpaceMatrix;
-uniform mat4 model;
+// Vertex position attribute
+layout (location = 0) in vec3 aPos;  // Vertex position in object space
+
+// Transformation matrices
+uniform mat4 lightSpaceMatrix; // Combined light view and projection matrix
+uniform mat4 model;            // Model transformation matrix
 
 void main()
 {
+    // Transform vertex from object space to light space
+    // This is used for rendering the scene from light's perspective to create the shadow map
     gl_Position = lightSpaceMatrix * model * vec4(aPos, 1.0);
 } 
