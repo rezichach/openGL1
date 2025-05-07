@@ -14,9 +14,9 @@ import time
 from pathlib import Path
 
 # Screenshots will be saved to the screenshots folder
-SCREENSHOTS_DIR = "openGL1/screenshots"
+SCREENSHOTS_DIR = "screenshots"
 # Database path
-DB_PATH = "openGL1/screenshot_db.sqlite"
+DB_PATH = "screenshot_db.sqlite"
 
 # =====================================================================
 # DATABASE INITIALIZATION
@@ -373,33 +373,33 @@ class App:
         self.quad_mesh = ShadowMapQuad()  # Quad for visualizing shadow map
         
         # Load textures for the objects
-        self.wood_texture = Material("openGL1/gfx/wall.png")
-        self.floor_texture = Material("openGL1/gfx/Ground.jfif")
+        self.wood_texture = Material("gfx/wall.png")
+        self.floor_texture = Material("gfx/Ground.jfif")
         
         # Create shaders for different rendering passes
         
         # Regular rendering shader (without shadows)
         self.shader = create_shader(
-            vertex_filepath="openGL1/shaders/vertex.txt", 
-            fragment_filepath="openGL1/shaders/fragment.txt"
+            vertex_filepath="shaders/vertex.txt", 
+            fragment_filepath="shaders/fragment.txt"
         )
         
         # Shadow mapping depth pass shader
         self.depth_shader = create_shader(
-            vertex_filepath="openGL1/shaders/depth_vertex.txt", 
-            fragment_filepath="openGL1/shaders/depth_fragment.txt"
+            vertex_filepath="shaders/depth_vertex.txt", 
+            fragment_filepath="shaders/depth_fragment.txt"
         )
         
         # Final rendering shader with shadows
         self.shadow_shader = create_shader(
-            vertex_filepath="openGL1/shaders/shadow_vertex.txt", 
-            fragment_filepath="openGL1/shaders/shadow_fragment.txt"
+            vertex_filepath="shaders/shadow_vertex.txt", 
+            fragment_filepath="shaders/shadow_fragment.txt"
         )
         
         # Shader for visualizing the shadow depth map
         self.debug_depth_shader = create_shader(
-            vertex_filepath="openGL1/shaders/debug_quad_vertex.txt", 
-            fragment_filepath="openGL1/shaders/debug_fragment.txt"
+            vertex_filepath="shaders/debug_quad_vertex.txt", 
+            fragment_filepath="shaders/debug_fragment.txt"
         )
         
         # Create camera for the scene
