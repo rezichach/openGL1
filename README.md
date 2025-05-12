@@ -18,16 +18,24 @@ A 3D demo application built with Python, OpenGL, and PyGame.
 - NumPy
 - Pyrr
 - SQLite3
+- Updated GPU drivers (required for optimal performance)
+
+## Important Notes
+
+- **GPU Drivers**: Please ensure your GPU drivers are up to date for optimal performance and compatibility
+- **Mac Users**: Performance may be suboptimal on Mac systems, especially on M1/M2 chips due to OpenGL limitations
+- **Windows Users**: Make sure you have the latest graphics drivers installed from your GPU manufacturer's website
 
 ## Installation
 
-```
+```bash
+# Install required packages
 pip install pygame PyOpenGL PyOpenGL_accelerate numpy pyrr
 ```
 
 ## Running the Application
 
-```
+```bash
 python openGL1/openGL1.py
 ```
 
@@ -41,33 +49,4 @@ python openGL1/openGL1.py
 
 ## Screenshots
 
-Screenshots are saved to the `openGL1/screenshots` directory. Metadata is stored in a SQLite database.
-
-## Docker (Linux Only)
-
-The application can also be run in Docker on a Linux system.
-
-### Build and Run with Docker Compose
-
-```bash
-# Allow X11 connections (required for display)
-xhost +local:docker
-
-# Build and run
-docker-compose up
-```
-
-### Or with Direct Docker Commands
-
-```bash
-# Build the image
-docker build -t opengl1-app .
-
-# Run the container
-docker run -it --rm \
-    -e DISPLAY=$DISPLAY \
-    -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -v ./openGL1/screenshots:/app/openGL1/screenshots \
-    --network host \
-    opengl1-app
-``` 
+Screenshots are saved to the `openGL1/screenshots` directory. Metadata is stored in a SQLite database. 

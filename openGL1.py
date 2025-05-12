@@ -1,6 +1,4 @@
-﻿# =====================================================================
-# IMPORTS AND GLOBAL CONSTANTS
-# =====================================================================
+﻿# IMPORTS AND GLOBAL CONSTANTS
 import pygame as pg
 from OpenGL.GL import *
 from OpenGL.GL.shaders import compileProgram, compileShader
@@ -18,9 +16,7 @@ SCREENSHOTS_DIR = "screenshots"
 # Database path
 DB_PATH = "screenshot_db.sqlite"
 
-# =====================================================================
 # DATABASE INITIALIZATION
-# =====================================================================
 # Simple database initialization
 conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
@@ -35,9 +31,7 @@ CREATE TABLE IF NOT EXISTS screenshots (
 conn.commit()
 conn.close()
 
-# =====================================================================
 # MENU SYSTEM
-# =====================================================================
 class MenuSystem:
     def __init__(self):
         pg.init()
@@ -145,9 +139,7 @@ class MenuSystem:
             self.clock.tick(60)
 
 
-# =====================================================================
 # SHADER CREATION UTILITY
-# =====================================================================
 def create_shader(vertex_filepath: str, fragment_filepath: str) -> int:
     with open(vertex_filepath, "r") as f:
         vertex_src = f.read()
@@ -162,9 +154,7 @@ def create_shader(vertex_filepath: str, fragment_filepath: str) -> int:
     return shader
 
 
-# =====================================================================
 # ENTITY CLASS - Base object that can be positioned, rotated, and scaled
-# =====================================================================
 class Entity:
     # Represents a 3D object in the scene with position, rotation and scale.
     # Provides methods for movement and rotation control.
@@ -271,9 +261,7 @@ class Entity:
         return model_transform
 
 
-# =====================================================================
 # LIGHT CLASS - Represents a light source for shadow mapping
-# =====================================================================
 class Light:
     # Represents a light source in the scene, used for shadow mapping and lighting calculations
     def __init__(self, position):
@@ -295,9 +283,7 @@ class Light:
         )
 
 
-# =====================================================================
 # CAMERA CLASS - View position and perspective
-# =====================================================================
 class Camera:
     # Represents the camera/viewer in the scene
     def __init__(self, position, target):
@@ -319,9 +305,7 @@ class Camera:
         )
 
 
-# =====================================================================
 # MAIN APPLICATION CLASS
-# =====================================================================
 class App:
     def __init__(self):
         self._set_up_pygame()
@@ -842,9 +826,7 @@ class App:
         # Note: We don't quit pygame here - we'll do that after returning from the app
 
 
-# =====================================================================
 # MESH CLASSES - Define geometry for rendering
-# =====================================================================
 # CubeMesh with normals (pos 3 ‖ normal 3 ‖ uv 2)
 class CubeMesh:
     # Creates a cube mesh with vertex positions, normals, and texture coordinates
@@ -976,9 +958,7 @@ class FloorMesh:
         glDeleteVertexArrays(1,(self.vao,)); glDeleteBuffers(1,(self.vbo,))
 
 
-# =====================================================================
 # TEXTURE HANDLING
-# =====================================================================
 class Material:
     # Handles loading and configuring textures for meshes
     def __init__(self, filepath: str):
@@ -1025,9 +1005,7 @@ class Material:
         glDeleteTextures(1, (self.texture,))
 
 
-# =====================================================================
 # SHADOW MAP VISUALIZATION
-# =====================================================================
 class ShadowMapQuad:
     # A simple full-screen quad used to display the shadow depth map for debugging
     def __init__(self):
@@ -1071,9 +1049,7 @@ class ShadowMapQuad:
         glDeleteVertexArrays(1,(self.vao,)); glDeleteBuffers(1,(self.vbo,))
 
 
-# =====================================================================
 # MAIN PROGRAM EXECUTION
-# =====================================================================
 # Main application execution
 if __name__ == "__main__":
     # Show menu first
