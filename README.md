@@ -25,6 +25,7 @@ A 3D demo application built with Python, OpenGL, and PyGame.
 - **GPU Drivers**: Please ensure your GPU drivers are up to date for optimal performance and compatibility
 - **Mac Users**: Performance may be suboptimal on Mac systems, especially on M1/M2 chips due to OpenGL limitations
 - **Windows Users**: Make sure you have the latest graphics drivers installed from your GPU manufacturer's website
+- **External Tools**: Do NOT use MSI Afterburner, RivaTuner, or any other system monitoring/overlay software while running this application as they can interfere with OpenGL rendering and cause crashes
 
 ## Installation
 
