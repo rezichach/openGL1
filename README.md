@@ -36,6 +36,7 @@ pip install pygame PyOpenGL PyOpenGL_accelerate numpy pyrr
 
 ## Running the Application
 
+
 ```bash
 python openGL1.py
 ```
