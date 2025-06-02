@@ -51,6 +51,3 @@ python openGL1/openGL1.py
 ## Screenshots
 
 Screenshots are saved to the `openGL1/screenshots` directory. Metadata is stored in a SQLite database.
-
----
-Last updated: May 2023 
